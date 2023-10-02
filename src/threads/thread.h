@@ -141,8 +141,10 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 /* pintos project1 - Alarm Clock */
-void thread_sleep(const int64_t ticks);
-void thread_wake(const int64_t ticks);
+void thread_sleep (const int64_t ticks);
+void thread_wake (const int64_t ticks);
 
-
+/* pintos project1 - Priority Scheduler */
+bool is_priority_greater (const struct list_elem *a, const struct list_elem *b, void* aux);
+void new_priority_check_yield (void);
 #endif /* threads/thread.h */

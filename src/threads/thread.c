@@ -210,6 +210,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  new_priority_check_yield ();
+
   return tid;
 }
 
@@ -246,7 +248,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, is_priority_greater, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -317,7 +320,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, is_priority_greater, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -345,6 +348,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  new_priority_check_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -599,7 +603,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
    second list_elem thread. This function takes form of list_less_func
    in list.h*/
 static bool 
-is_wakeup_tick_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+is_wakeup_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   const int64_t wakeup_tick_a = list_entry(a, struct thread, elem) -> wakeup_tick;
   const int64_t wakeup_tick_b = list_entry(b, struct thread, elem) -> wakeup_tick;
@@ -608,7 +612,7 @@ is_wakeup_tick_less(const struct list_elem *a, const struct list_elem *b, void *
 }
 
 void
-thread_sleep(const int64_t wakeup_tick)
+thread_sleep (const int64_t wakeup_tick)
 {
   struct thread *cur = thread_current();
 
@@ -626,7 +630,7 @@ thread_sleep(const int64_t wakeup_tick)
 }
 
 void
-thread_wake(const int64_t cur_tick)
+thread_wake (const int64_t cur_tick)
 {
   struct list_elem *e;
 
@@ -635,7 +639,30 @@ thread_wake(const int64_t cur_tick)
     struct thread *e_thread = list_entry(e, struct thread, elem);
     if (cur_tick < e_thread -> wakeup_tick)
       break;
+    /* first remove the thread from sleep list then unblock the thread */
     e = list_remove(e);
     thread_unblock(e_thread);
   }
+}
+
+/* pintos project1 - Priority Scheduler */
+bool 
+is_priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const int priority_a = list_entry(a, struct thread, elem) -> priority;
+  const int priority_b = list_entry(b, struct thread, elem) -> priority;
+
+  return priority_a > priority_b;
+}
+
+void
+new_priority_check_yield ()
+{
+  if(list_empty(&ready_list)) 
+    return;
+
+  const int new_priority = thread_current() -> priority;
+  const int priority_max = list_entry(list_front(&ready_list), struct thread, elem) -> priority;
+  if(new_priority < priority_max)
+    thread_yield();
 }
