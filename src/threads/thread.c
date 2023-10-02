@@ -15,7 +15,6 @@
 #include "userprog/process.h"
 #endif
 
-
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -28,6 +27,10 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+/* List of processes sleeping, Processes reside in this list until TICKS amount 
+   of sleep time and removed by timer interrupt when they wake up*/
+static struct list sleep_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -72,6 +75,10 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+/* pintos project1 - Alarm Clock*/
+static bool is_wakeup_tick_less(const struct list_elem *a, const struct list_elem *b, void* aux);
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -93,6 +100,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -584,3 +592,50 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/* pintos project1 - Alarm Clock */
+
+/* Returns true if first list_elem thread has smaller wake up tick then 
+   second list_elem thread. This function takes form of list_less_func
+   in list.h*/
+static bool 
+is_wakeup_tick_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const int64_t wakeup_tick_a = list_entry(a, struct thread, elem) -> wakeup_tick;
+  const int64_t wakeup_tick_b = list_entry(b, struct thread, elem) -> wakeup_tick;
+
+  return wakeup_tick_a < wakeup_tick_b;
+}
+
+void
+thread_sleep(const int64_t wakeup_tick)
+{
+  struct thread *cur = thread_current();
+
+  ASSERT(cur != idle_thread);       /* idle_thread does not sleep */
+  ASSERT (!intr_context ());        /* external interrupt does not sleep */
+
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+  cur -> wakeup_tick = wakeup_tick;
+  list_insert_ordered(&sleep_list, &(cur->elem), is_wakeup_tick_less, NULL);
+  thread_block();
+
+  intr_set_level(old_level);
+}
+
+void
+thread_wake(const int64_t cur_tick)
+{
+  struct list_elem *e;
+
+  for( e = list_begin (&sleep_list); e != list_end(&sleep_list);)
+  {
+    struct thread *e_thread = list_entry(e, struct thread, elem);
+    if (cur_tick < e_thread -> wakeup_tick)
+      break;
+    e = list_remove(e);
+    thread_unblock(e_thread);
+  }
+}
