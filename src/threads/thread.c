@@ -347,7 +347,18 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *cur = thread_current();
+
+  /* Lowering priority of donee thread --> We should only change initial priority of it */
+  if (cur->initial_priority != cur->priority && new_priority < cur->priority)
+    cur->initial_priority = new_priority;
+  else
+  {
+    /* Change both initial priority & priority for general cases */
+    cur->initial_priority = new_priority;
+    cur->priority = new_priority;
+  }
+
   new_priority_check_yield();
 }
 
@@ -476,6 +487,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  t->initial_priority = priority;
+  t->waiting_lock = NULL;
+  list_init (&t->holding_lock_list);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -665,4 +680,12 @@ new_priority_check_yield ()
   const int priority_max = list_entry(list_front(&ready_list), struct thread, elem) -> priority;
   if(new_priority < priority_max)
     thread_yield();
+}
+
+/* pintos project1 - Priority Inversion */
+void
+sort_ready_list ()
+{
+  if (!list_empty (&ready_list))
+    list_sort (&ready_list, is_priority_greater, NULL);
 }

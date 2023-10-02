@@ -32,6 +32,13 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* pintos project1 - Priority Inversion */
+static void donate_priority (void);
+static void recall_priority (struct thread *cur);
+static int highest_waiters_priority (struct semaphore *sema);
+static bool is_sema_priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -201,7 +208,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread *cur = thread_current();  
+  if (lock->holder) {
+    cur->waiting_lock = lock;
+    donate_priority();
+  }
+
   sema_down (&lock->semaphore);
+
+  cur->waiting_lock = NULL;
+  list_push_back (&cur->holding_lock_list, &lock->lock_elem);
+
   lock->holder = thread_current ();
 }
 
@@ -237,6 +254,11 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
+
+  struct thread *cur = thread_current ();
+  list_remove (&lock->lock_elem);
+  recall_priority (cur);
+
   sema_up (&lock->semaphore);
 }
 
@@ -300,7 +322,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem, is_sema_priority_greater, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -322,8 +344,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) 
+  {
+    list_sort (&cond->waiters, is_sema_priority_greater, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -340,4 +365,63 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+
+/* pintos project1 - Priority Inversion */
+static void
+donate_priority (void)
+{
+  struct thread *donor = thread_current();
+
+  while (donor->waiting_lock != NULL)
+  {
+    struct thread *holder = donor->waiting_lock->holder;
+
+    if (holder->priority < donor->priority) 
+      holder->priority = donor->priority;
+
+    donor = holder;
+  }
+
+  sort_ready_list ();
+}
+
+static void
+recall_priority (struct thread *cur)
+{
+  int tmp = cur->initial_priority;
+
+  struct list_elem *e;
+  for (e = list_begin (&cur->holding_lock_list); e != list_end (&cur->holding_lock_list); e = list_next(e)) 
+  {
+    struct lock *lock = list_entry (e, struct lock, lock_elem);
+    int max_priority = highest_waiters_priority (&lock->semaphore);
+
+    if (max_priority > tmp) 
+      tmp = max_priority;
+  }
+
+  cur->priority = tmp;
+}
+
+static int
+highest_waiters_priority (struct semaphore *sema)
+{
+  if (list_empty(&sema->waiters))
+    return -1;
+  else
+  {
+    list_sort (&sema->waiters, is_priority_greater, NULL);
+    return list_entry (list_front (&sema->waiters), struct thread, elem) -> priority;
+  }
+}
+
+static bool
+is_sema_priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const int priority_a = highest_waiters_priority (&(list_entry (a, struct semaphore_elem, elem) -> semaphore));
+  const int priority_b = highest_waiters_priority (&(list_entry (b, struct semaphore_elem, elem) -> semaphore));
+
+  return priority_a > priority_b;
 }

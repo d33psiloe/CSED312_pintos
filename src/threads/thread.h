@@ -95,6 +95,10 @@ struct thread
 
     int64_t wakeup_tick;                    /* wake up time in timer ticks */
 
+    int initial_priority;               /* initial priority */
+    struct lock *waiting_lock;          /* lock that the thread is waiting for release // For Nested donation */
+    struct list holding_lock_list;      /* list of locks that the thread is holding // For Multiple donation */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -147,4 +151,8 @@ void thread_wake (const int64_t ticks);
 /* pintos project1 - Priority Scheduler */
 bool is_priority_greater (const struct list_elem *a, const struct list_elem *b, void* aux);
 void new_priority_check_yield (void);
+ 
+ 
+/* pintos project1 - Priority Inversion */
+void sort_ready_list (void);
 #endif /* threads/thread.h */
