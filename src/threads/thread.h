@@ -99,6 +99,9 @@ struct thread
     struct lock *waiting_lock;          /* lock that the thread is waiting for release // For Nested donation */
     struct list holding_lock_list;      /* list of locks that the thread is holding // For Multiple donation */
 
+    int nice;                           /* nice value for mlfqs */
+    int recent_cpu;                     /* recent_cpu for mlfqs */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -151,8 +154,13 @@ void thread_wake (const int64_t ticks);
 /* pintos project1 - Priority Scheduler */
 bool is_priority_greater (const struct list_elem *a, const struct list_elem *b, void* aux);
 void new_priority_check_yield (void);
- 
- 
+  
 /* pintos project1 - Priority Inversion */
 void sort_ready_list (void);
+
+/* pintos project1 - Advanced Scheduler */
+void update_mlfqs_stats(const int64_t ticks);
+
+
+
 #endif /* threads/thread.h */

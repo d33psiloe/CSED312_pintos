@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixedpoint.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -63,6 +64,10 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+/* Load average of the ready list. Estimates the average number of threads 
+   ready to run over the past minute. */
+static fp load_avg;
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -77,6 +82,12 @@ static tid_t allocate_tid (void);
 
 /* pintos project1 - Alarm Clock*/
 static bool is_wakeup_tick_less(const struct list_elem *a, const struct list_elem *b, void* aux);
+
+/* pintos project1 - Advanced Scheduler */
+static void mlfqs_recent_cpu_incr(void);
+static void mlfqs_priority_calc(struct thread *t, void *aux UNUSED);
+static void mlfqs_recent_cpu_calc(struct thread *t, void *aux UNUSED);
+static void mlfqs_load_avg_calc(void);
 
 
 /* Initializes the threading system by transforming the code
@@ -107,6 +118,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  load_avg = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -347,9 +360,12 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  if (thread_mlfqs)
+    return;
+
   struct thread *cur = thread_current();
 
-  /* Lowering priority of donee thread --> We should only change initial priority of it */
+  /* Lowering priority of donee thread should only change initial priority */
   if (cur->initial_priority != cur->priority && new_priority < cur->priority)
     cur->initial_priority = new_priority;
   else
@@ -371,34 +387,37 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  struct thread *cur = thread_current();
+  ASSERT(cur != idle_thread);
+
+  cur-> nice = nice;
+  mlfqs_priority_calc(cur, NULL);
+  new_priority_check_yield();
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current() -> nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp_to_int_round_near(fp_mult_int(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp_to_int_round_near(fp_mult_int(thread_current()->recent_cpu, 100));
 }
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -491,6 +510,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->initial_priority = priority;
   t->waiting_lock = NULL;
   list_init (&t->holding_lock_list);
+
+  if(thread_mlfqs) 
+  {
+    t->nice = 0;
+    t->recent_cpu = 0;
+  }
+
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -688,4 +714,63 @@ sort_ready_list ()
 {
   if (!list_empty (&ready_list))
     list_sort (&ready_list, is_priority_greater, NULL);
+}
+
+/* pintos project1 - Advanced Scheduler */
+
+static void
+mlfqs_recent_cpu_incr()
+{
+  struct thread *cur = thread_current();
+  if (cur == idle_thread) 
+    return;
+  cur-> recent_cpu = fp_add_int(cur -> recent_cpu, 1);
+}
+
+/* For certain amount of ticks recalculate priority and recent_cpu of all threads.
+   These functions take form of thread_action_func and passed to thread_foreach() */
+static void
+mlfqs_priority_calc(struct thread *t, void *aux UNUSED)
+{ 
+  if(t == idle_thread)
+    return;
+  fp recent_cpu = t -> recent_cpu;
+  int new_priority = PRI_MAX - fp_to_int_round_near(fp_div_int(recent_cpu, 4)) - (t -> nice) * 2;
+  /* priority boundary check */
+  if(new_priority < PRI_MIN) new_priority = PRI_MIN;
+  if(new_priority > PRI_MAX) new_priority = PRI_MAX;
+  t -> priority = new_priority;
+} 
+
+static void
+mlfqs_recent_cpu_calc(struct thread *t, void *aux UNUSED)
+{
+  if(t == idle_thread)
+    return;
+  fp twice_load_avg = fp_mult_int(load_avg, 2);
+  fp decay_recent_cpu = fp_mult(fp_div(twice_load_avg, fp_add_int(twice_load_avg, 1)), t -> recent_cpu);
+  t -> recent_cpu = fp_add_int((decay_recent_cpu), t -> nice);
+}
+
+static void
+mlfqs_load_avg_calc()
+{
+  int ready_threads_num = list_size(&ready_list);
+	if(thread_current() != idle_thread) 
+    ready_threads_num++;
+	fp decay_load_avg = fp_mult(fp_div_int(int_to_fp(59), 60), load_avg);
+  fp ready_threads_num_factor =fp_mult_int(fp_div_int(int_to_fp(1), 60), ready_threads_num);
+	load_avg = fp_add(decay_load_avg, ready_threads_num_factor);
+}
+
+void
+update_mlfqs_stats(const int64_t ticks)
+{
+  mlfqs_recent_cpu_incr();
+  if(ticks % 100 == 0) 
+  {
+    mlfqs_load_avg_calc();
+    thread_foreach(mlfqs_recent_cpu_calc, NULL);
+  }
+  if(ticks % 4 == 0) thread_foreach(mlfqs_priority_calc, NULL);
 }
