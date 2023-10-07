@@ -758,9 +758,7 @@ mlfqs_load_avg_calc()
   int ready_threads_num = list_size(&ready_list);
 	if(thread_current() != idle_thread) 
     ready_threads_num++;
-	fp decay_load_avg = fp_mult(fp_div_int(int_to_fp(59), 60), load_avg);
-  fp ready_threads_num_factor =fp_mult_int(fp_div_int(int_to_fp(1), 60), ready_threads_num);
-	load_avg = fp_add(decay_load_avg, ready_threads_num_factor);
+  load_avg = fp_div_int(fp_add_int(fp_mult_int(load_avg, 59), ready_threads_num), 60);
 }
 
 void
