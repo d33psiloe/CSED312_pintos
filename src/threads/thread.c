@@ -770,5 +770,9 @@ update_mlfqs_stats(const int64_t ticks)
     mlfqs_load_avg_calc();
     thread_foreach(mlfqs_recent_cpu_calc, NULL);
   }
-  if(ticks % 4 == 0) thread_foreach(mlfqs_priority_calc, NULL);
+  if(ticks % 4 == 0) 
+  {
+    thread_foreach(mlfqs_priority_calc, NULL);
+    sort_ready_list();
+  }
 }
