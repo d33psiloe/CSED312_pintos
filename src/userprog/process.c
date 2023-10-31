@@ -21,6 +21,12 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+/* pintos project2 - Argument Passing */
+
+static void extract_program_name (char *program_name);
+static int parse_file_name (char *file_name, char **argv);
+static void push_stack_arg (void **esp, char **argv, int argc);
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -38,8 +44,17 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* changes */
+  /* Parse FILENAME to extract program name */
+  char *program_name = malloc( (strlen(fn_copy) + 1) * sizeof(char) );
+  strlcpy(program_name, fn_copy, (strlen(fn_copy) + 1) * sizeof(char) );
+  extract_program_name(program_name);
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  free(program_name);
+
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -54,16 +69,31 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  /* changes */
+  /* Parse file_name into program name and arguments */
+  int argc;
+  char* argv[128]; // maximum # of argmuents that can be passed to pintos kernel 
+
+  argc = parse_file_name(file_name, argv);
+  char *program_name = argv[0];
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (program_name, &if_.eip, &if_.esp);
 
+  
+
+  /* changes */
+  /* If load succeed, push argument to the (minmally set) stack*/
   /* If load failed, quit. */
+  if(success)
+    push_stack_arg(&if_.esp, argv, argc);
+
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success)
     thread_exit ();
 
   /* Start the user process by simulating a return from an
@@ -86,8 +116,11 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  /* changes */
+  int i;
+  for (i = 0; i < 1000000000; i++);
   return -1;
 }
 
@@ -462,4 +495,77 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+
+/* changes */
+/* pintos project2 - Argument Passing */
+
+static void
+extract_program_name(char *program_name)
+{
+  char *save_ptr;
+  program_name = strtok_r(program_name, " ", &save_ptr);
+}
+
+static int
+parse_file_name (char *file_name, char **argv)
+{
+  char *token,*save_ptr;
+  int token_count = 0;
+
+  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+       token = strtok_r(NULL, " ", &save_ptr))
+  {
+    argv[token_count] = token;
+    token_count++;
+  }
+
+  return token_count;
+} 
+
+static void
+push_stack_arg( void **esp, char **argv, int argc )
+{
+  /* setup_stack sets *esp to PHYS_BASE*/
+  ASSERT(*esp == PHYS_BASE)
+
+  int i, arg_len;
+
+  /* push argv[i][:] ; actual program name and arguments */
+  for(i = argc - 1; i >= 0; i--)
+  {
+    arg_len = strlen(argv[i]) + 1;
+    *esp -= arg_len;
+    memcpy(*esp, argv[i], arg_len);
+    /* store stack addr of arguments in argv ; argv not used again */
+    argv[i] = *esp;
+  }
+
+  /* push word align */
+  /* Memory is initially filled with zeros. only have to change *esp to 4 btye-aligned */
+  *esp = (void *)((uint32_t) *esp & 0xfffffffc);
+
+  /* push argv[argc]= NULL */
+  *esp -= 4;
+  *(uint32_t *) *esp = 0;
+
+  /* push stack addr of arguments stored in argv[i] */
+  for(i = argc - 1; i >= 0; i--)
+  {
+    *esp -= 4;
+    *(uint32_t *) *esp = argv[i];
+  }
+
+  /* push argv start addr */
+  *esp -= 4;
+  *(uint32_t *) *esp = *esp + 4;
+
+  /* push argc value */
+  *esp -= 4;
+  *(uint32_t *) *esp = argc;
+
+  /* push return addr */
+  *esp -= 4;
+  *(uint32_t *) *esp = 0;
 }

@@ -704,7 +704,7 @@ new_priority_check_yield ()
 
   const int new_priority = thread_current() -> priority;
   const int priority_max = list_entry(list_front(&ready_list), struct thread, elem) -> priority;
-  if(new_priority < priority_max)
+  if(new_priority < priority_max && !intr_context())
     thread_yield();
 }
 
