@@ -18,6 +18,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "userprog/syscall.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -44,19 +46,25 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* changes */
   /* Parse FILENAME to extract program name */
   char *program_name = malloc( (strlen(fn_copy) + 1) * sizeof(char) );
   strlcpy(program_name, fn_copy, (strlen(fn_copy) + 1) * sizeof(char) );
   extract_program_name(program_name);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
   free(program_name);
 
 
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+  /* changes */
+  else
+  {
+    sema_down(&(thread_get_child(tid)->load_sema));     // parent process waits until child's load is done
+    if(thread_current()->is_child_loaded == false)
+      return -1;
+  }    
   return tid;
 }
 
@@ -69,7 +77,6 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  /* changes */
   /* Parse file_name into program name and arguments */
   int argc;
   char* argv[128]; // maximum # of argmuents that can be passed to pintos kernel 
@@ -83,16 +90,18 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (program_name, &if_.eip, &if_.esp);
-
   
-
-  /* changes */
   /* If load succeed, push argument to the (minmally set) stack*/
   /* If load failed, quit. */
+  thread_current()->parent->is_child_loaded = success;
+
   if(success)
     push_stack_arg(&if_.esp, argv, argc);
 
+  /* changes */
+  sema_up(&(thread_current()->load_sema));
   palloc_free_page (file_name);
+
   if (!success)
     thread_exit ();
 
@@ -115,13 +124,26 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
+/* changes */
 int
 process_wait (tid_t child_tid) 
 {
-  /* changes */
-  int i;
-  for (i = 0; i < 1000000000; i++);
-  return -1;
+  struct thread *child_thread = thread_get_child(child_tid);
+
+  // Not a direct child || process already waited
+  if (child_thread == NULL || child_thread->is_waited == true)
+    return -1;
+ 
+  // parent waits until child is done
+  child_thread->is_waited = true;
+  sema_down(&(child_thread->wait_sema));
+  
+  // retrieve child's exit status... protect by synchronizing with child's 
+  int exit_status = child_thread->exit_status;
+  list_remove(&(child_thread->child_list_elem));
+  sema_up(&(child_thread->wait_parent_sema));
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -147,6 +169,27 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  
+  cur->is_waited = false;
+
+  /* close all files from fd_list*/
+  struct list *fd_list = &cur -> fd_list;
+  struct list_elem *e;
+  for(e = list_begin(fd_list); e != list_end(fd_list); )
+  {
+    struct file_obj *cur_file_obj = list_entry(e, struct file_obj, file_elem);
+    e = list_next(e);
+    close(cur_file_obj->fd_number);
+  }
+  
+  file_close (cur->load_file);
+
+  // release parent process
+  sema_up(&(cur->wait_sema));
+  // hold until parent retrieves child's exit status
+  sema_down(&(cur->wait_parent_sema));
+  
 }
 
 /* Sets up the CPU for running user code in the current
@@ -256,11 +299,16 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
+
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  /* Denying writes to executables */
+  file_deny_write(file);
+  t-> load_file = file;
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -345,7 +393,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  // file_close (file);
   return success;
 }
 
@@ -498,7 +546,7 @@ install_page (void *upage, void *kpage, bool writable)
 }
 
 
-/* changes */
+
 /* pintos project2 - Argument Passing */
 
 static void
@@ -554,12 +602,12 @@ push_stack_arg( void **esp, char **argv, int argc )
   for(i = argc - 1; i >= 0; i--)
   {
     *esp -= 4;
-    *(uint32_t *) *esp = argv[i];
+    *(uint32_t *) *esp = (uint32_t) argv[i];
   }
 
   /* push argv start addr */
   *esp -= 4;
-  *(uint32_t *) *esp = *esp + 4;
+  *(uint32_t *) *esp = (uint32_t) (*esp + 4);
 
   /* push argc value */
   *esp -= 4;

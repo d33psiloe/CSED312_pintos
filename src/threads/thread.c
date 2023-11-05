@@ -16,6 +16,8 @@
 #include "userprog/process.h"
 #endif
 
+#include "userprog/pagedir.h"
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -219,6 +221,10 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+
+  /* changes */
+  t->parent = thread_current();
+  list_push_back(&(t->parent->direct_child_list), &(t->child_list_elem));
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -518,6 +524,18 @@ init_thread (struct thread *t, const char *name, int priority)
   }
 
 
+  /* changes */
+  t->exit_status = -1;
+  t->is_waited = false;
+  t->is_child_loaded = false;
+  t->next_fd_num = 2;
+  sema_init(&t->load_sema, 0);
+  sema_init(&t->wait_sema, 0);
+  sema_init(&t->wait_parent_sema, 0);
+  list_init(&t->direct_child_list);
+  list_init(&t->fd_list);
+
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -775,4 +793,22 @@ update_mlfqs_stats(const int64_t ticks)
     thread_foreach(mlfqs_priority_calc, NULL);
     sort_ready_list();
   }
+}
+
+/* pintos project2 - System Call */
+struct thread *
+thread_get_child (tid_t child_tid)
+{
+    struct thread *t = thread_current();
+    struct thread *child_thread;
+    struct list *child_list = &(t->direct_child_list);
+    struct list_elem *child;
+
+    for(child = list_begin(child_list); child != list_end(child_list); child = list_next(child))
+    {
+        child_thread = list_entry(child, struct thread, child_list_elem);
+        if(child_thread->tid == child_tid) 
+            return child_thread;
+    }
+    return NULL;
 }

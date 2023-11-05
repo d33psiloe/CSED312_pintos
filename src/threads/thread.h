@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 
+/* changes */
+#include "threads/synch.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -105,11 +108,37 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+    /* changes */
+    int exit_status;
+    struct thread *parent;
+    struct list direct_child_list;
+    struct list_elem child_list_elem;
+    struct semaphore load_sema;           // semaphore for load synchronization. parent checks child's load_sema
+    struct semaphore wait_sema;           // semaphore for wait synch. parent waits until child process is done.
+    struct semaphore wait_parent_sema;    // semaphore for wait synch. child waits until parent retrieves child's exit status.
+    bool is_waited;                       // is the thread already waited?
+    bool is_child_loaded;
+
+    int next_fd_num;                    /* next file descriptor value  */
+    struct list fd_list;                /* list of files that the thread is accessing  */
+
+    struct file *load_file;
+
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+/* changes */
+/* pintos project2 - System Call */
+struct file_obj
+   {
+      int fd_number;
+      struct file *file_content;
+      struct list_elem file_elem;
+   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -161,6 +190,9 @@ void sort_ready_list (void);
 /* pintos project1 - Advanced Scheduler */
 void update_mlfqs_stats(const int64_t ticks);
 
+
+/* pintos project2 - System Call */
+struct thread *thread_get_child(tid_t child_tid);
 
 
 #endif /* threads/thread.h */
