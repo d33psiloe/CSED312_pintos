@@ -20,7 +20,6 @@ static void syscall_handler (struct intr_frame *);
 
 /* pintos project2 - System Call */
 typedef int pid_t;
-struct lock fs_lock;
 
 static bool is_address_valid (const void *vp);
 static void get_arguments (uint32_t *esp, uint32_t *arg, int n);

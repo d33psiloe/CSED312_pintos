@@ -183,7 +183,9 @@ process_exit (void)
     close(cur_file_obj->fd_number);
   }
   
+  lock_acquire(&fs_lock);
   file_close (cur->load_file);
+  lock_release(&fs_lock);
 
   // release parent process
   sema_up(&(cur->wait_sema));
@@ -298,7 +300,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire(&fs_lock);
   file = filesys_open (file_name);
+  lock_release(&fs_lock);
 
   if (file == NULL) 
     {
