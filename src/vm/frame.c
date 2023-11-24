@@ -2,6 +2,7 @@
 #include "lib/kernel/list.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
+#include "threads/synch.h"
 
 /* frame table (linked list) */
 static struct list frame_table;
@@ -59,8 +60,8 @@ static void *
 frame_free (struct ft_entry *fte)
 {
     if (fte == NULL)
-        exit (-1);
-    
+        exit (-1);  
+
     list_remove (&fte->fte_elem);
     palloc_free_page (fte->frame_number);       // free the physical address
     pagedir_clear_page (fte->owner_thread->pagedir, fte->page_number);  // deactivate corresponding virtual address accesses
@@ -76,7 +77,7 @@ free_frame (void *frame_number)
     struct ft_entry *fte = get_fte (frame_number);
     frame_free (fte);
 
-    lock_release (&frame_lock)      // ---
+    lock_release (&frame_lock);     // ---
 }
 
 /* deallocate all frames owned by given owner thread
@@ -87,10 +88,15 @@ free_all_frames (struct thread *t)
     lock_acquire (&frame_lock);     // ---
 
     struct list_elem *e;
-    for (e = list_begin (&frame_table); e != list_end (&frame_table); e = list_next (e))
-        if (list_entry (e, struct frame_table_entry, fte_elem)->owner_thread == t)
-            frame_free (list_entry (e, struct frame_table_entry, fte_elem));
-
+    for (e = list_begin (&frame_table); e != list_end (&frame_table); )
+    {   
+        struct ft_entry *fte = list_entry (e, struct ft_entry, fte_elem);
+        e = list_next (e);
+        if (fte->owner_thread == t)
+            frame_free (fte);
+    }
+        // if (list_entry (e, struct ft_entry, fte_elem)->owner_thread == t)
+        //     frame_free (list_entry (e, struct ft_entry, fte_elem));
     lock_release (&frame_lock);     // ---
 }
 
@@ -121,7 +127,7 @@ get_fte (void *frame_number)
 {
     struct list_elem *e;
     for (e = list_begin (&frame_table); e != list_end (&frame_table); e = list_next (e))
-        if (list_entry (e, struct frame_table_entry, fte_elem)->frame_number == frame_number)
-            return list_entry (e, struct frame_table_entry, fte_elem);
+        if (list_entry (e, struct ft_entry, fte_elem)->frame_number == frame_number)
+            return list_entry (e, struct ft_entry, fte_elem);
     return NULL;
 }

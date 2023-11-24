@@ -1,3 +1,6 @@
+#ifndef VM_FRAME_H
+#define VM_FRAME_H
+
 #include "threads/thread.h"
 //#include "vm/page.h"
 #include "threads/palloc.h"
@@ -20,3 +23,5 @@ void *frame_allocate (enum palloc_flags, void *);
 void *free_frame (void *);
 void *free_all_frames (struct thread *);
 void frame_evict (void);
+
+#endif
