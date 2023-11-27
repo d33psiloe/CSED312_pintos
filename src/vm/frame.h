@@ -2,7 +2,6 @@
 #define VM_FRAME_H
 
 #include "threads/thread.h"
-//#include "vm/page.h"
 #include "threads/palloc.h"
 
 /* Frame table entry contains information of frame
@@ -12,7 +11,6 @@ struct ft_entry
     void *frame_number;                 // physical address of frame
     void *page_number;                  // virtual address of frame
     struct thread *owner_thread;        // thread ptr for frame's owner
-    //struct spt_entry *spte;
 
     struct list_elem fte_elem;
 };

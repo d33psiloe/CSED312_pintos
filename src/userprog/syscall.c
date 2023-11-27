@@ -13,8 +13,9 @@
 #include "threads/vaddr.h"
 #include "devices/input.h"
 
-
-
+/* Addition */
+struct lock fs_lock;
+//
 
 static void syscall_handler (struct intr_frame *);
 
@@ -137,7 +138,9 @@ is_address_valid (const void *vp)
   int i;
   for(i = 0; i < sizeof(uint32_t *); i++)
   {
-    if(vp + i == NULL || !is_user_vaddr(vp + i) || pagedir_get_page(thread_current()->pagedir, vp + i) == NULL)
+    /* Addition */
+    // lazy-load implementation - page with no mapping now can be a valid case
+    if(vp + i == NULL || !is_user_vaddr(vp + i) /*|| pagedir_get_page(thread_current()->pagedir, vp + i) == NULL*/)
       return false;
   }
   return true;

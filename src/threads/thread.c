@@ -226,6 +226,8 @@ thread_create (const char *name, int priority,
   t->parent = thread_current();
   list_push_back(&(t->parent->direct_child_list), &(t->child_list_elem));
 
+  spage_table_init(&t->spage_table);
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -534,7 +536,6 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->wait_parent_sema, 0);
   list_init(&t->direct_child_list);
   list_init(&t->fd_list);
-
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

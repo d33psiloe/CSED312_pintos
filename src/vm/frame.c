@@ -44,10 +44,8 @@ frame_allocate (enum palloc_flags flags, void *page_number)
 
     fte = (struct ft_entry *) malloc(sizeof *fte);
     fte->frame_number = frame_number;
-    //fte->page_number = spte->page_number;
     fte->page_number = page_number;
     fte->owner_thread = thread_current ();
-    //fte->spte = spte;
     list_push_back (&frame_table, &fte->fte_elem);
 
     lock_release (&frame_lock);     // ---
@@ -60,7 +58,7 @@ static void *
 frame_free (struct ft_entry *fte)
 {
     if (fte == NULL)
-        exit (-1);  
+        exit (-1);
 
     list_remove (&fte->fte_elem);
     palloc_free_page (fte->frame_number);       // free the physical address
@@ -95,8 +93,7 @@ free_all_frames (struct thread *t)
         if (fte->owner_thread == t)
             frame_free (fte);
     }
-        // if (list_entry (e, struct ft_entry, fte_elem)->owner_thread == t)
-        //     frame_free (list_entry (e, struct ft_entry, fte_elem));
+
     lock_release (&frame_lock);     // ---
 }
 

@@ -37,10 +37,11 @@
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
 #endif
-
-
+#ifdef VM
 /* Addition */
 #include "vm/frame.h"
+#endif
+
 
 /* Page directory with kernel mappings only. */
 uint32_t *init_page_dir;
@@ -91,6 +92,7 @@ main (void)
 
   /* Initialize ourselves as a thread so we can use locks,
      then enable console locking. */
+
   thread_init ();
   console_init ();  
 

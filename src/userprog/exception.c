@@ -128,6 +128,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
+   
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -153,8 +154,19 @@ page_fault (struct intr_frame *f)
   /* pintos project2 */
   /* Check if page fault was invoked by user program accessing bad memory */
 
-  if(user && (is_kernel_vaddr(fault_addr) || not_present))
-   exit(-1);
+//   if(user && (is_kernel_vaddr(fault_addr) || not_present))
+//    exit(-1);
+
+   /* pintos project3 */
+
+   if(is_kernel_vaddr(fault_addr) || !not_present)
+      exit(-1);
+
+   void *upage = pg_round_down (fault_addr);
+   struct hash *spage_table = &thread_current() -> spage_table;
+
+   if (lazy_load_page(spage_table, upage))
+      return;
   
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
