@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 
 #include "lib/kernel/hash.h"
+#include "userprog/syscall.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -130,6 +131,10 @@ struct thread
 
 #ifdef VM
     struct hash spage_table;
+
+    void *saved_esp;
+    struct list mmap_file_list;
+    int next_mapid;
 #endif
 
     /* Owned by thread.c. */
@@ -143,6 +148,16 @@ struct file_obj
       int fd_number;
       struct file *file_content;
       struct list_elem file_elem;
+   };
+
+/* changes */
+struct mmap_file_obj
+   {
+      mapid_t mapid;
+      struct file* file;
+      struct list_elem mmf_list_elem;
+
+      void *page_number;
    };
 
 /* If false (default), use round-robin scheduler.

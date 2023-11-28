@@ -136,6 +136,8 @@ main (void)
   /* Addition */
   /* Initialize frame table */
   frame_init();
+  if (lock_held_by_current_thread (&frame_lock))
+    printf("\n%s\n", "main");
 
   printf ("Boot complete.\n");
   

@@ -6,6 +6,7 @@
 #include "threads/thread.h"
 
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -159,14 +160,28 @@ page_fault (struct intr_frame *f)
 
    /* pintos project3 */
 
-   if(is_kernel_vaddr(fault_addr) || !not_present)
+   if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
       exit(-1);
 
    void *upage = pg_round_down (fault_addr);
-   struct hash *spage_table = &thread_current() -> spage_table;
+   struct hash *spt = &thread_current() -> spage_table;
 
-   if (lazy_load_page(spage_table, upage))
-      return;
+   void *esp = user ? f->esp : thread_current()->saved_esp;
+
+   if (spage_table_get_entry(spt, upage))
+   {
+      if (lazy_load_page(spt, upage))
+         return;
+   }
+   else
+   {
+      if (fault_addr < esp - 32 || PHYS_BASE - (uint32_t) esp > (1 << 23) )
+        exit(-1);
+      if(extend_stack(spt, upage, esp))
+         return;
+
+   }
+   exit(-1);
   
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

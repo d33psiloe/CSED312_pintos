@@ -154,10 +154,18 @@ process_wait (tid_t child_tid)
 void
 process_exit (void)
 {
+  //ASSERT(!lock_held_by_current_thread(&fs_lock));
+  //ASSERT(!lock_held_by_current_thread(&frame_lock));
+
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
    /* Addition */
+  // printf("\n%s\n", "check here pls");
+  for (int i = 0; i < cur->next_mapid; i++)
+  {
+    munmap(i);
+  }
   free_all_frames (cur);
   //
 
@@ -189,10 +197,17 @@ process_exit (void)
     e = list_next(e);
     close(cur_file_obj->fd_number);
   }
-  
-  lock_acquire(&fs_lock);
+
+  bool is_holding_lock = lock_held_by_current_thread (&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire (&fs_lock);
   file_close (cur->load_file);
-  lock_release(&fs_lock);
+  if(!is_holding_lock)
+    lock_release(&fs_lock);
+
+  // lock_acquire (&fs_lock);
+  // file_close (cur->load_file);
+  // lock_release(&fs_lock);
 
   // release parent process
   sema_up(&(cur->wait_sema));
@@ -307,6 +322,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+
   lock_acquire(&fs_lock);
   file = filesys_open (file_name);
   lock_release(&fs_lock);

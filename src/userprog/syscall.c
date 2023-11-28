@@ -13,6 +13,8 @@
 #include "threads/vaddr.h"
 #include "devices/input.h"
 
+#include "vm/page.h"
+
 /* Addition */
 struct lock fs_lock;
 //
@@ -41,6 +43,10 @@ static int write (int fd, const void *buffer, unsigned size);
 static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 
+static mapid_t mmap (int fd, void *addr);
+static struct mmap_file_obj * mmap_file_setup ( mapid_t mapid, struct file *file, void *page_number);
+static struct mmap_file_obj *fetch_mmf_obj (mapid_t mapid);
+
 
 void
 syscall_init (void) 
@@ -55,6 +61,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   if (!is_address_valid(f->esp))
     exit(-1);
 
+  thread_current()->saved_esp = f->esp;
   uint32_t arg[3];    // arguments for system call functions
 
   switch (*(uint32_t *)f->esp)
@@ -111,7 +118,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:
       get_arguments(f->esp, arg, 3);
       check_arg_addr((const void *)arg[1]);
-      f->eax = write(arg[0], (const void *) arg[1], arg[2]);
+      f->eax = write(arg[0], (const void *) arg[1], (unsigned) arg[2]);
       break;
 
     case SYS_SEEK:
@@ -128,6 +135,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       get_arguments(f->esp, arg, 1);
       close(arg[0]);
       break;
+
+    case SYS_MMAP:
+        get_arguments(f->esp, arg, 2);
+        f->eax = mmap(arg[0], (void *) arg[1]);
+        break;
+
+    case SYS_MUNMAP:
+        get_arguments(f->esp, arg, 1);
+        munmap((int) arg[0]);
+        break;
   }
 }
 
@@ -156,7 +173,9 @@ get_arguments (uint32_t *esp, uint32_t *arg, int n)
     for(i = 0; i < n; i++)
     {
         if(!is_address_valid((esp+1)+i))
-            exit(-1);
+        {
+          exit(-1);
+        }
         
         arg[i] = *((esp+1)+i);
     }
@@ -166,7 +185,9 @@ static void
 check_arg_addr(const void *arg)
 {
   if(!is_address_valid(arg))
-      exit(-1);
+  {
+    exit(-1);
+  }
 }
 
 static void
@@ -225,29 +246,44 @@ fetch_file_obj (struct thread *t , int fd)
 
 static bool
 create (const char*file, unsigned initial_size)
-{
-  lock_acquire(&fs_lock);
+{ 
+  bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire (&fs_lock);
+
   bool success = filesys_create(file, initial_size);
-  lock_release(&fs_lock);
+
+  if(!is_holding_lock)
+    lock_release(&fs_lock);
   return success;
 }
 
 static bool 
 remove (const char *file)
 {
-  lock_acquire(&fs_lock);
+  bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire (&fs_lock);
+
   bool success = filesys_remove(file);
-  lock_release(&fs_lock);
+
+  if(!is_holding_lock)
+    lock_release(&fs_lock);
   return success;
 }
 
 static int
 open (const char *file)
 {
-  lock_acquire(&fs_lock);
+  bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire (&fs_lock);
+
   struct file *file_content_ = filesys_open(file);
   struct thread * cur = thread_current();
-  lock_release(&fs_lock);
+
+  if(!is_holding_lock)
+    lock_release(&fs_lock);
 
   if (file_content_ == NULL)
     return -1;
@@ -274,7 +310,8 @@ filesize (int fd)
     return -1;
   else
   {
-    lock_acquire(&fs_lock);
+    // if(!lock_held_by_current_thread(&fs_lock))
+      lock_acquire (&fs_lock);
     int file_size = file_length( f->file_content );
     lock_release(&fs_lock);
     return file_size;
@@ -302,9 +339,12 @@ read (int fd, void *buffer, unsigned size)
       return -1;
     else
     {
-      lock_acquire(&fs_lock);
+      bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+      if(!is_holding_lock)
+        lock_acquire (&fs_lock);
       read_size = file_read( f->file_content, buffer, size );
-      lock_release(&fs_lock);
+      if(!is_holding_lock)
+        lock_release(&fs_lock);
     }
   }
   return read_size;
@@ -313,11 +353,6 @@ read (int fd, void *buffer, unsigned size)
 static int 
 write (int fd, const void *buffer, unsigned size) 
 {
-
-  // exit if buffer invalid
-  if(!is_address_valid(buffer))
-    exit(-1);
-
   int write_size = 0;
 
   if (fd == 1) 
@@ -332,9 +367,12 @@ write (int fd, const void *buffer, unsigned size)
       return -1;
     else
     {
-      lock_acquire(&fs_lock);
+      bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+      if(!is_holding_lock)
+        lock_acquire (&fs_lock);
       write_size = file_write( f->file_content, buffer, size );
-      lock_release(&fs_lock);
+      if(!is_holding_lock)
+        lock_release(&fs_lock);
       return write_size;
     }
   }
@@ -348,9 +386,12 @@ seek (int fd, unsigned position)
     return;
   else
   {
-    lock_acquire(&fs_lock);
+    bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+    if(!is_holding_lock)
+      lock_acquire (&fs_lock);
     file_seek(f-> file_content, position);
-    lock_release(&fs_lock);
+    if(!is_holding_lock)
+      lock_release(&fs_lock);
   }
 }
 
@@ -363,9 +404,12 @@ tell (int fd)
     return 0;
   else
   {
-    lock_acquire(&fs_lock);
+    bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+    if(!is_holding_lock)
+      lock_acquire (&fs_lock);
     position = file_tell(f-> file_content);
-    lock_release(&fs_lock);
+    if(!is_holding_lock)
+      lock_release(&fs_lock);
   }
   return position;
 }
@@ -374,17 +418,157 @@ void
 close (int fd)
 {
   struct file_obj *f = fetch_file_obj(thread_current(), fd);
-  if (f == NULL)
+  if (f == NULL){
     return;
+  }
 
   else
-  {
-    lock_acquire(&fs_lock);
+  { 
+    bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+    if(!is_holding_lock)
+      lock_acquire (&fs_lock);
+
     file_close(f-> file_content);
-    lock_release(&fs_lock);
+
+    if(!is_holding_lock)
+      lock_release(&fs_lock);
     list_remove(&f->file_elem);
     free(f);
     return;
   }
   
+}
+
+/* pintos project3 mmap file */
+/* changes */
+static mapid_t
+mmap (int fd, void *addr)
+{
+
+  struct file_obj *f = fetch_file_obj (thread_current(), fd);
+
+  if(f == NULL ||  !(is_user_vaddr(addr)) || addr == NULL || (int32_t) addr % PGSIZE != 0 )
+    return -1;
+
+  bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire (&fs_lock);
+
+  struct file *mmap_file = file_reopen (f->file_content);
+
+  struct mmap_file_obj *mmf_obj = mmap_file_setup (thread_current()->next_mapid++, mmap_file, addr);
+  if(mmf_obj == NULL)
+  { 
+    // printf("\n%s\n", "mmf_overlap");
+    if(!is_holding_lock)
+      lock_release (&fs_lock);
+    return -1;
+  }
+
+  if(!is_holding_lock)
+    lock_release (&fs_lock);
+
+  return mmf_obj->mapid;
+}
+
+static struct mmap_file_obj *
+mmap_file_setup ( mapid_t mapid, struct file *file, void *page_number)
+{
+  struct mmap_file_obj *mmf_obj = malloc(sizeof( *mmf_obj));
+
+  mmf_obj->mapid = mapid;
+  mmf_obj->file = file;
+  mmf_obj->page_number = page_number; //mmap file start address
+
+  off_t ofs;
+  int read_bytes = file_length(file);
+  struct hash *spt =  &thread_current()->spage_table;
+
+  /* check if overlaps mmaped pages */
+  for (ofs = 0; ofs < read_bytes; ofs += PGSIZE)
+        if (spage_table_get_entry(spt, page_number + ofs))
+            return NULL;
+
+
+  /* mmaping of the file; setup spage table entry*/
+
+  ofs = 0;    
+  while(read_bytes > 0)
+  {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+    spt_entry_file_setup (spt, file, ofs, page_number, 
+                          page_read_bytes, page_zero_bytes, true);
+
+    /* Advance. */
+    read_bytes -= page_read_bytes;
+    page_number += PGSIZE;
+    ofs += page_read_bytes;
+  }
+
+  list_push_back(&thread_current()->mmap_file_list, &mmf_obj->mmf_list_elem);
+  
+  return mmf_obj;
+
+}
+
+void
+munmap (mapid_t mapping)
+{
+  struct thread *t = thread_current();
+  struct hash *spt =  &thread_current()->spage_table;
+
+  struct mmap_file_obj *mmf_obj= fetch_mmf_obj (mapping);
+  if (mmf_obj == NULL)
+  {
+    return;
+  }
+  void *page_number = mmf_obj -> page_number;
+
+  bool is_holding_lock = lock_held_by_current_thread(&fs_lock);
+  if(!is_holding_lock)
+    lock_acquire(&fs_lock);
+
+  // printf("\n%s\n", "can pass?");
+  off_t ofs;
+  int write_bytes = file_length(mmf_obj->file);
+  // printf("\n%s\n", "pass can?");
+  while (write_bytes > 0)
+  {
+
+    size_t page_write_bytes = write_bytes < PGSIZE ? write_bytes : PGSIZE;
+
+    struct spt_entry *spte = spage_table_get_entry(spt, page_number);
+    void *kpage = pagedir_get_page(t->pagedir, page_number);
+
+    if (pagedir_is_dirty(t->pagedir, page_number)) {
+        file_write_at(spte->file, kpage, spte->read_bytes, spte-> file_offset);
+    }
+
+    pagedir_clear_page (t->pagedir, page_number);
+    spt_entry_free (spt, spte);
+
+    write_bytes -= page_write_bytes;
+    page_number += PGSIZE;
+  }
+  
+  list_remove(&mmf_obj->mmf_list_elem);
+  if(!is_holding_lock)
+    lock_release(&fs_lock);
+}
+
+static struct mmap_file_obj *
+fetch_mmf_obj (mapid_t mapid)
+{
+  struct list *mmf_list = &thread_current()-> mmap_file_list;
+  struct list_elem *e;
+  for (e = list_begin(mmf_list); e != list_end(mmf_list); e = list_next(e))
+  {
+    struct mmap_file_obj *mmf_obj = list_entry (e, struct mmap_file_obj, mmf_list_elem);
+    if (mmf_obj->mapid == mapid)
+      return mmf_obj;
+  }
+  
+  return NULL;
 }
