@@ -6,7 +6,7 @@
 
 /* frame table (linked list) */
 static struct list frame_table;
-static struct lock frame_lock;
+struct lock frame_lock;
 static struct list_elem *clock_hand;
 
 static void *frame_free (struct ft_entry *fte);
@@ -30,7 +30,7 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     struct ft_entry *fte;
     void *frame_number;
 
-    lock_acquire (&frame_lock);     // ---
+    //lock_acquire (&frame_lock);
 
     frame_number = palloc_get_page (flags);
     /* if allocation fails... do eviction and try again*/
@@ -46,9 +46,12 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     fte->frame_number = frame_number;
     fte->page_number = page_number;
     fte->owner_thread = thread_current ();
-    list_push_back (&frame_table, &fte->fte_elem);
 
-    lock_release (&frame_lock);     // ---
+    lock_acquire (&frame_lock);
+    list_push_back (&frame_table, &fte->fte_elem);
+    lock_release (&frame_lock);
+
+    //lock_release (&frame_lock);     // ---
     
     return frame_number;
 }
@@ -57,10 +60,14 @@ frame_allocate (enum palloc_flags flags, void *page_number)
 static void *
 frame_free (struct ft_entry *fte)
 {
+    //ASSERT(lock_held_by_current_thread(&frame_lock));
     if (fte == NULL)
         exit (-1);
 
+    lock_acquire (&frame_lock);
     list_remove (&fte->fte_elem);
+    lock_release (&frame_lock);
+    
     palloc_free_page (fte->frame_number);       // free the physical address
     pagedir_clear_page (fte->owner_thread->pagedir, fte->page_number);  // deactivate corresponding virtual address accesses
     free (fte);
@@ -70,12 +77,12 @@ frame_free (struct ft_entry *fte)
 void *
 free_frame (void *frame_number)
 {
-    lock_acquire (&frame_lock);     // ---
+    //lock_acquire (&frame_lock);
 
     struct ft_entry *fte = get_fte (frame_number);
     frame_free (fte);
 
-    lock_release (&frame_lock);     // ---
+    //lock_release (&frame_lock);
 }
 
 /* deallocate all frames owned by given owner thread
@@ -83,7 +90,7 @@ free_frame (void *frame_number)
 void *
 free_all_frames (struct thread *t)
 {
-    lock_acquire (&frame_lock);     // ---
+    //lock_acquire (&frame_lock);
 
     struct list_elem *e;
     for (e = list_begin (&frame_table); e != list_end (&frame_table); )
@@ -94,28 +101,13 @@ free_all_frames (struct thread *t)
             frame_free (fte);
     }
 
-    lock_release (&frame_lock);     // ---
+    //lock_release (&frame_lock);
 }
 
 void
 frame_evict ()
 {
     exit (-1);
-    /*
-    if (!list_empty(frame_table))
-    {
-        struct ft_entry *fte = list_entry(clock_hand, struct ft_entry, fte_elem);
-
-        do
-        {
-            if (fte != NULL)
-                pagedir_set_accessed (fte->owner_thread->pagedir, )
-        } while (
-            
-        );
-        
-    }
-    */
 }
 
 /* get matching frame table entry for the given physical address */

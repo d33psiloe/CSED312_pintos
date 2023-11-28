@@ -15,6 +15,8 @@ struct ft_entry
     struct list_elem fte_elem;
 };
 
+extern struct lock frame_lock;
+
 void frame_init (void);
 //void *frame_allocate (enum palloc_flags, struct spt_entry *);
 void *frame_allocate (enum palloc_flags, void *);
