@@ -126,7 +126,7 @@ frame_evict ()
                 clock_hand = list_next (clock_hand);
         } while (!pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number));
 
-        struct spt_entry *spte = get_spte (&thread_current()->spage_table, fte->page_number);
+        struct spt_entry *spte = spage_table_get_entry (&thread_current()->spage_table, fte->page_number);
         spte->page_type = PAGE_SWAP;
         spte->swap_idx = swap_out (fte->frame_number);
 
