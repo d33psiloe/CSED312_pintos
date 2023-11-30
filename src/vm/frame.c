@@ -121,6 +121,7 @@ frame_evict ()
         struct ft_entry *fte;
         do
         {
+            printf("\n%s\n", "iter");
             fte = list_entry(clock_hand, struct ft_entry, fte_elem);       
             if (fte != NULL)
             {
@@ -129,23 +130,22 @@ frame_evict ()
             }
             
             // iterate like circular queue
-            if (clock_hand == list_end (&frame_table) || fte == NULL)
+            if (clock_hand == list_end (&frame_table) || clock_hand == NULL)
                 clock_hand = list_begin (&frame_table);
             else 
                 clock_hand = list_next (clock_hand);
         } while (!pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number));
-
-        printf("\n%s\n", "get spte");
+        
         struct spt_entry *spte = spage_table_get_entry (&thread_current()->spage_table, fte->page_number);
         spte->page_type = PAGE_SWAP;
 
-        printf("\n%s\n", "swap out start");
         spte->swap_idx = swap_out (fte->frame_number);
-        printf("\n%s\n", "swap out end");
 
         //lock_release (&frame_lock);         // temporarily release frame lock
 
         free_frame (fte->frame_number);     // free the evicted frame
+
+        clock
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
     }
