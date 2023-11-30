@@ -526,8 +526,6 @@ setup_stack (void **esp)
 
   /* Addition */
   kpage = frame_allocate (PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
-  if (kpage == NULL)
-    printf("\n%s\n", "setup stack frame is null");
   //
 
   if (kpage != NULL) 

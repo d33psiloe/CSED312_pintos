@@ -129,7 +129,8 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-   
+
+   printf("\n%s\n", "page fault start");
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -161,7 +162,10 @@ page_fault (struct intr_frame *f)
    /* pintos project3 */
 
    if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
-      exit(-1);
+   {
+      printf("\n%s\n", "fault1");
+      exit (-1);
+   }
 
    void *upage = pg_round_down (fault_addr);
    struct hash *spt = &thread_current() -> spage_table;
@@ -176,11 +180,15 @@ page_fault (struct intr_frame *f)
    else
    {
       if (fault_addr < esp - 32 || PHYS_BASE - (uint32_t) esp > (1 << 23) )
-        exit(-1);
+      {
+         printf("\n%s\n", "fault2");
+         exit (-1);
+      }
       if(extend_stack(spt, upage, esp))
          return;
 
    }
+   printf("\n%s\n", "no fitting case -> exit");
    exit(-1);
   
   /* To implement virtual memory, delete the rest of the function
