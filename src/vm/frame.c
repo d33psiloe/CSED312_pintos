@@ -141,30 +141,10 @@ frame_evict ()
             if (clock_hand == list_end (&frame_table))
                 clock_hand = list_begin (&frame_table);
         }
-
         // update clock hand
         clock_hand = list_next (clock_hand);
         if (clock_hand == list_end (&frame_table))
             clock_hand = list_begin (&frame_table);
-        
-        // do
-        // {
-        //     printf("\n%s\n", "iter");
-        //     if (clock_hand == NULL)
-        //         clock_hand = list_begin (&frame_table);
-
-        //     fte = list_entry(clock_hand, struct ft_entry, fte_elem);       
-        //     if (fte != NULL)
-        //     {
-        //         printf("\n%s\n", "problem1");
-        //         pagedir_set_accessed (fte->owner_thread->pagedir, fte->page_number, false);
-        //     }
-            
-        //     // iterate like circular queue
-        //     clock_hand = list_next (clock_hand);
-        //     if (clock_hand == list_end (&frame_table))
-        //         clock_hand = list_begin (&frame_table);
-        // } while (!pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number));
         
         struct spt_entry *spte = spage_table_get_entry (&thread_current()->spage_table, fte->page_number);
         spte->page_type = PAGE_SWAP;
