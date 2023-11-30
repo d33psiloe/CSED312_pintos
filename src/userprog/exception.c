@@ -159,17 +159,12 @@ page_fault (struct intr_frame *f)
 
    /* pintos project3 */
 
+   if (fault_addr == NULL)
+      printf("\n%s\n", "fault addr is null");
+
    if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
    {
       printf("\n%s\n", "fault1");
-
-      if (fault_addr < (void*)(0x08048000))
-         printf("\n%s\n", "type1");
-      if (is_kernel_vaddr(fault_addr))
-         printf("\n%s\n", "type2");
-      if (!not_present)
-         printf("\n%s\n", "type3");
-
       exit (-1);
    }
 
