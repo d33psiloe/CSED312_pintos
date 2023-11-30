@@ -118,25 +118,48 @@ frame_evict ()
 {
     if (!list_empty(&frame_table))
     {
-        struct ft_entry *fte;
-        do
+        if (clock_hand == NULL)
+            clock_hand = list_begin (&frame_table);
+        struct ft_entry *fte = list_entry (clock_hand, struct ft_entry, fte_elem);
+
+        while (true)
         {
             printf("\n%s\n", "iter");
-            if (clock_hand == NULL)
-                clock_hand = list_begin (&frame_table);
-
-            fte = list_entry(clock_hand, struct ft_entry, fte_elem);       
-            if (fte != NULL)
+            fte = list_entry (clock_hand, struct ft_entry, fte_elem);
+            if (pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number))
             {
-                printf("\n%s\n", "problem1");
+                printf("\n%s\n", "set accessed false");
                 pagedir_set_accessed (fte->owner_thread->pagedir, fte->page_number, false);
             }
-            
+            else
+            {
+                printf("\n%s\n", "break!");
+                break;
+            }
             // iterate like circular queue
             clock_hand = list_next (clock_hand);
             if (clock_hand == list_end (&frame_table))
                 clock_hand = list_begin (&frame_table);
-        } while (!pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number));
+        }
+        
+        // do
+        // {
+        //     printf("\n%s\n", "iter");
+        //     if (clock_hand == NULL)
+        //         clock_hand = list_begin (&frame_table);
+
+        //     fte = list_entry(clock_hand, struct ft_entry, fte_elem);       
+        //     if (fte != NULL)
+        //     {
+        //         printf("\n%s\n", "problem1");
+        //         pagedir_set_accessed (fte->owner_thread->pagedir, fte->page_number, false);
+        //     }
+            
+        //     // iterate like circular queue
+        //     clock_hand = list_next (clock_hand);
+        //     if (clock_hand == list_end (&frame_table))
+        //         clock_hand = list_begin (&frame_table);
+        // } while (!pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number));
         
         struct spt_entry *spte = spage_table_get_entry (&thread_current()->spage_table, fte->page_number);
         spte->page_type = PAGE_SWAP;
@@ -148,6 +171,11 @@ frame_evict ()
         free_frame (fte->frame_number);     // free the evicted frame
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
+
+        // update clock hand after deletion
+        clock_hand = list_next (clock_hand);
+        if (clock_hand == list_end (&frame_table))
+            clock_hand = list_begin (&frame_table);
     }
 }
 
