@@ -141,6 +141,11 @@ frame_evict ()
             if (clock_hand == list_end (&frame_table))
                 clock_hand = list_begin (&frame_table);
         }
+
+        // update clock hand
+        clock_hand = list_next (clock_hand);
+        if (clock_hand == list_end (&frame_table))
+            clock_hand = list_begin (&frame_table);
         
         // do
         // {
@@ -171,11 +176,6 @@ frame_evict ()
         free_frame (fte->frame_number);     // free the evicted frame
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
-
-        // update clock hand after deletion
-        clock_hand = list_next (clock_hand);
-        if (clock_hand == list_end (&frame_table))
-            clock_hand = list_begin (&frame_table);
     }
 }
 
