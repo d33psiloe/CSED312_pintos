@@ -99,6 +99,8 @@ free_all_frames (struct thread *t)
 {
     //lock_acquire (&frame_lock);
 
+    printf("\n%s\n", "free all frame start");
+
     struct list_elem *e;
     for (e = list_begin (&frame_table); e != list_end (&frame_table); )
     {   
@@ -107,6 +109,8 @@ free_all_frames (struct thread *t)
         if (fte->owner_thread == t)
             frame_free (fte);
     }
+
+    printf("\n%s\n", "free all frame end");
 
     //lock_release (&frame_lock);
 }
