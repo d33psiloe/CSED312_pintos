@@ -130,8 +130,6 @@ page_fault (struct intr_frame *f)
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
 
-   printf("\n%s\n", "page fault start");
-
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -164,6 +162,14 @@ page_fault (struct intr_frame *f)
    if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
    {
       printf("\n%s\n", "fault1");
+
+      if (fault_addr < (void*)(0x08048000))
+         printf("\n%s\n", "type1");
+      if (is_kernel_vaddr(fault_addr))
+         printf("\n%s\n", "type2");
+      if (!not_present)
+         printf("\n%s\n", "type3");
+
       exit (-1);
    }
 
@@ -181,14 +187,12 @@ page_fault (struct intr_frame *f)
    {
       if (fault_addr < esp - 32 || PHYS_BASE - (uint32_t) esp > (1 << 23) )
       {
-         printf("\n%s\n", "fault2");
          exit (-1);
       }
       if(extend_stack(spt, upage, esp))
          return;
 
    }
-   printf("\n%s\n", "no fitting case -> exit");
    exit(-1);
   
   /* To implement virtual memory, delete the rest of the function
