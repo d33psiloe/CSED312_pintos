@@ -43,10 +43,7 @@ frame_allocate (enum palloc_flags flags, void *page_number)
         printf("\n%s\n", "check2");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
-        {
-            printf("\n%s\n", "frame number is null");
             return NULL;
-        }
     }
 
     fte = (struct ft_entry *) malloc(sizeof *fte);
@@ -67,13 +64,10 @@ frame_allocate (enum palloc_flags flags, void *page_number)
 static void *
 frame_free (struct ft_entry *fte)
 {
+    printf("\n%s\n", "frame free start");
     //ASSERT(lock_held_by_current_thread(&frame_lock));
     if (fte == NULL)
-    {
-        printf("\n%s\n", "exit?");
         exit (-1);
-        printf("\n%s\n", "yes exit");
-    }
 
     lock_acquire (&frame_lock);
     list_remove (&fte->fte_elem);
@@ -82,6 +76,8 @@ frame_free (struct ft_entry *fte)
     palloc_free_page (fte->frame_number);       // free the physical address
     pagedir_clear_page (fte->owner_thread->pagedir, fte->page_number);  // deactivate corresponding virtual address accesses
     free (fte);
+
+    printf("\n%s\n", "frame free end");
 }
 
 /* deallocates the frame with given physical address from frame table */

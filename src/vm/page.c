@@ -156,10 +156,7 @@ lazy_load_page (struct hash *spt, const void *upage)
 
   void *kpage = frame_allocate (PAL_USER, upage);
   if (kpage == NULL)
-  {
-    printf("\n%s\n", "lazy load frame alloc is null");
     exit (-1);
-  }
     
   bool is_holding_lock = lock_held_by_current_thread (&fs_lock);
   switch (spte -> page_type)
@@ -199,15 +196,13 @@ lazy_load_page (struct hash *spt, const void *upage)
 
 bool 
 extend_stack (struct hash *spt, void *upage, void *esp)
-{   
-  // printf("\n%s\n", "extend stack entered");
+{
+  printf("\n%s\n", "extend stack entered");
   //check if stack size becomes larger than 8MB
   if (PHYS_BASE - upage > (1 << 23))
       return false;
-  
+
   void *kpage = frame_allocate (PAL_USER, upage);
-  if (kpage == NULL)
-    printf("\n%s\n", "extend stack frame is null");
 
   spt_entry_frame_setup (spt, upage, kpage);
   
@@ -222,6 +217,6 @@ extend_stack (struct hash *spt, void *upage, void *esp)
       printf("\n%s\n", "free frame at ext stack end");
       return false;
   }
-
+  printf("\n%s\n", "extend stack end");
   return true;
 }
