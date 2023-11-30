@@ -540,11 +540,13 @@ setup_stack (void **esp)
         *esp = PHYS_BASE;
       }
       else
+      {
         /* Addition */
         printf("\n%s\n", "setup stack free frame start");
         free_frame (kpage);
         printf("\n%s\n", "setup stack free frame success");
         //
+      }
     }
   return success;
 }
