@@ -43,7 +43,10 @@ frame_allocate (enum palloc_flags flags, void *page_number)
         printf("\n%s\n", "check2");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
+        {
+            printf("\n%s\n", "frame number is null");
             return NULL;
+        }
     }
 
     fte = (struct ft_entry *) malloc(sizeof *fte);
@@ -66,7 +69,11 @@ frame_free (struct ft_entry *fte)
 {
     //ASSERT(lock_held_by_current_thread(&frame_lock));
     if (fte == NULL)
+    {
+        printf("\n%s\n", "exit?");
         exit (-1);
+        printf("\n%s\n", "yes exit");
+    }
 
     lock_acquire (&frame_lock);
     list_remove (&fte->fte_elem);
@@ -82,9 +89,6 @@ void *
 free_frame (void *frame_number)
 {
     //lock_acquire (&frame_lock);
-
-    if (list_empty(&frame_table))
-        printf("\n%s\n", "frame table empty");
 
     struct ft_entry *fte = get_fte (frame_number);
     frame_free (fte);
