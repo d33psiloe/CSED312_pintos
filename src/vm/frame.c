@@ -83,6 +83,9 @@ free_frame (void *frame_number)
 {
     //lock_acquire (&frame_lock);
 
+    if (list_empty(&frame_table))
+        printf("\n%s\n", "frame table empty");
+
     struct ft_entry *fte = get_fte (frame_number);
     frame_free (fte);
 
@@ -134,7 +137,8 @@ frame_evict ()
 
         //lock_release (&frame_lock);         // temporarily release frame lock
 
-        free_frame (fte->frame_number);     // free the evicted frame
+        //free_frame (fte->frame_number);     // free the evicted frame
+        frame_free (fte);
 
         //lock_acquire (&frame_lock);         // acquire frame lock again
     }
