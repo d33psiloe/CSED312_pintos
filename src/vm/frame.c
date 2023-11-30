@@ -38,7 +38,9 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     /* if allocation fails... do eviction and try again*/
     if (frame_number == NULL)
     {
+        printf("\n%s\n", "check1");
         frame_evict();
+        printf("\n%s\n", "check2");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
             return NULL;
