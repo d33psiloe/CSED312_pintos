@@ -144,8 +144,6 @@ frame_evict ()
         //lock_release (&frame_lock);         // temporarily release frame lock
 
         free_frame (fte->frame_number);     // free the evicted frame
-
-        clock
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
     }
