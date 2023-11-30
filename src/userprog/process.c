@@ -540,9 +540,9 @@ setup_stack (void **esp)
       else
       {
         /* Addition */
-        printf("\n%s\n", "setup stack free frame start");
+        //printf("\n%s\n", "setup stack free frame start");
         free_frame (kpage);
-        printf("\n%s\n", "setup stack free frame success");
+        //printf("\n%s\n", "setup stack free frame success");
         //
       }
     }

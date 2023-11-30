@@ -197,7 +197,7 @@ lazy_load_page (struct hash *spt, const void *upage)
 bool 
 extend_stack (struct hash *spt, void *upage, void *esp)
 {
-  printf("\n%s\n", "extend stack entered");
+  //printf("\n%s\n", "extend stack entered");
   //check if stack size becomes larger than 8MB
   if (PHYS_BASE - upage > (1 << 23))
       return false;
@@ -212,11 +212,11 @@ extend_stack (struct hash *spt, void *upage, void *esp)
   // check if newly alloated frame is valid
   if (!check)
   {   
-      printf("\n%s\n", "free frame at ext stack start");
+      //printf("\n%s\n", "free frame at ext stack start");
       free_frame (kpage);
-      printf("\n%s\n", "free frame at ext stack end");
+      //printf("\n%s\n", "free frame at ext stack end");
       return false;
   }
-  printf("\n%s\n", "extend stack end");
+  //printf("\n%s\n", "extend stack end");
   return true;
 }

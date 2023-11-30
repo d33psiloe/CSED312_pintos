@@ -38,9 +38,9 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     /* if allocation fails... do eviction and try again*/
     if (frame_number == NULL)
     {
-        printf("\n%s\n", "check1");
+        //printf("\n%s\n", "check1");
         frame_evict();
-        printf("\n%s\n", "check2");
+        //printf("\n%s\n", "check2");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
             return NULL;
@@ -96,7 +96,7 @@ free_all_frames (struct thread *t)
 {
     //lock_acquire (&frame_lock);
 
-    printf("\n%s\n", "free all frame start");
+    //printf("\n%s\n", "free all frame start");
 
     struct list_elem *e;
     for (e = list_begin (&frame_table); e != list_end (&frame_table); )
@@ -107,7 +107,7 @@ free_all_frames (struct thread *t)
             frame_free (fte);
     }
 
-    printf("\n%s\n", "free all frame end");
+    //printf("\n%s\n", "free all frame end");
 
     //lock_release (&frame_lock);
 }
@@ -124,16 +124,16 @@ frame_evict ()
 
         while (true)
         {
-            printf("\n%s\n", "iter");
+            //printf("\n%s\n", "iter");
             fte = list_entry (clock_hand, struct ft_entry, fte_elem);
             if (pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number))
             {
-                printf("\n%s\n", "set accessed false");
+                //printf("\n%s\n", "set accessed false");
                 pagedir_set_accessed (fte->owner_thread->pagedir, fte->page_number, false);
             }
             else
             {
-                printf("\n%s\n", "break!");
+                //printf("\n%s\n", "break!");
                 break;
             }
             // iterate like circular queue

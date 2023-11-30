@@ -158,13 +158,9 @@ page_fault (struct intr_frame *f)
 //    exit(-1);
 
    /* pintos project3 */
-
-   if (fault_addr == NULL)
-      printf("\n%s\n", "fault addr is null");
-
    if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
    {
-      printf("\n%s\n", "fault1");
+      //printf("\n%s\n", "fault1");
       exit (-1);
    }
 
