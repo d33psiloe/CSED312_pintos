@@ -40,6 +40,7 @@ static void push_stack_arg (void **esp, char **argv, int argc);
 tid_t
 process_execute (const char *file_name) 
 {
+  printf("\n%s\n", "proc exec");
   char *fn_copy;
   tid_t tid;
 
@@ -77,6 +78,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  printf("\n%s\n", "start process");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -198,11 +200,11 @@ process_exit (void)
     close(cur_file_obj->fd_number);
   }
 
-  bool is_holding_lock = lock_held_by_current_thread (&fs_lock);
-  if(!is_holding_lock)
+  // bool is_holding_lock = lock_held_by_current_thread (&fs_lock);
+  // if(!is_holding_lock)
     lock_acquire (&fs_lock);
   file_close (cur->load_file);
-  if(!is_holding_lock)
+  // if(!is_holding_lock)
     lock_release(&fs_lock);
 
   // lock_acquire (&fs_lock);
