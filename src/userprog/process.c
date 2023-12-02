@@ -168,11 +168,12 @@ process_exit (void)
   {
     munmap(i);
   }
-  free_all_frames (cur);
-  //
 
   /* debug - Addition */
   spage_table_free (&cur->spage_table);
+
+  free_all_frames (cur);
+  //
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

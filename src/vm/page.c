@@ -169,6 +169,8 @@ lazy_load_page (struct hash *spt, const void *upage)
       break;
 
     case PAGE_FILE:
+      printf("\n%s\n", "PAGE_FILE");
+
       if(!is_holding_lock)
         lock_acquire (&fs_lock);
 
@@ -185,12 +187,20 @@ lazy_load_page (struct hash *spt, const void *upage)
       swap_in (kpage, spte->swap_idx);
       break;
 
+    /* debug - Addition */
+    default:
+      printf("\n%s\n", "default");
+      exit (-1);
+
   }
   
-  pagedir_set_page(thread_current()->pagedir, upage, kpage, spte->writable); 
+  bool success = pagedir_set_page(thread_current()->pagedir, upage, kpage, spte->writable);
+  if (!success)
+    printf("\n%s\n", "free and exit needed");
 
   spte ->frame_number = kpage;
   spte ->page_type = PAGE_FRAME;
+
   return true;
 }
 

@@ -162,7 +162,6 @@ frame_evict ()
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
     }
-    printf("\n%s\n", "evict did nothing");
 }
 
 /* get matching frame table entry for the given physical address */
