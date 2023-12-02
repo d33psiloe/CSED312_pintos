@@ -33,7 +33,7 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     struct ft_entry *fte;
     void *frame_number;
 
-    //lock_acquire (&frame_lock);
+    lock_acquire (&frame_lock);
 
     frame_number = palloc_get_page (flags);
     /* if allocation fails... do eviction and try again*/
@@ -52,11 +52,11 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     fte->page_number = page_number;
     fte->owner_thread = thread_current ();
 
-    lock_acquire (&frame_lock);
+    //lock_acquire (&frame_lock);
     list_push_back (&frame_table, &fte->fte_elem);
-    lock_release (&frame_lock);
+    //lock_release (&frame_lock);
 
-    //lock_release (&frame_lock);     // ---
+    lock_release (&frame_lock);     // ---
     
     //printf("\n%s\n", "frame alloc end");
     return frame_number;
@@ -71,9 +71,9 @@ frame_free (struct ft_entry *fte)
     if (fte == NULL)
         exit (-1);
 
-    lock_acquire (&frame_lock);
+    //lock_acquire (&frame_lock);
     list_remove (&fte->fte_elem);
-    lock_release (&frame_lock);
+    //lock_release (&frame_lock);
     
     palloc_free_page (fte->frame_number);       // free the physical address
     pagedir_clear_page (fte->owner_thread->pagedir, fte->page_number);  // deactivate corresponding virtual address accesses
@@ -86,12 +86,12 @@ frame_free (struct ft_entry *fte)
 void *
 free_frame (void *frame_number)
 {
-    //lock_acquire (&frame_lock);
+    lock_acquire (&frame_lock);
 
     struct ft_entry *fte = get_fte (frame_number);
     frame_free (fte);
 
-    //lock_release (&frame_lock);
+    lock_release (&frame_lock);
 }
 
 /* deallocate all frames owned by given owner thread
@@ -99,7 +99,7 @@ free_frame (void *frame_number)
 void *
 free_all_frames (struct thread *t)
 {
-    //lock_acquire (&frame_lock);
+    lock_acquire (&frame_lock);
 
     //printf("\n%s\n", "free all frame start");
 
@@ -114,13 +114,15 @@ free_all_frames (struct thread *t)
 
     //printf("\n%s\n", "free all frame end");
 
-    //lock_release (&frame_lock);
+    lock_release (&frame_lock);
 }
 
 /* swap table - Addition */
 void
 frame_evict ()
 {
+    ASSERT (lock_held_by_current_thread (&frame_lock));
+
     printf("\n%s\n", "frame evict start");
     if (!list_empty(&frame_table))
     {
@@ -157,15 +159,13 @@ frame_evict ()
 
         spte->swap_idx = swap_out (fte->frame_number);
 
-        //lock_release (&frame_lock);         // temporarily release frame lock
+        lock_release (&frame_lock);         // temporarily release frame lock
 
         free_frame (fte->frame_number);     // free the evicted frame
     
-        //lock_acquire (&frame_lock);         // acquire frame lock again
+        lock_acquire (&frame_lock);         // acquire frame lock again
         printf("\n%s\n", "successfully freed, evicted");
     }
-    else
-        printf("\n%s\n", "page table empty");
 }
 
 /* get matching frame table entry for the given physical address */
