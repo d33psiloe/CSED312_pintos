@@ -39,9 +39,9 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     /* if allocation fails... do eviction and try again*/
     if (frame_number == NULL)
     {
-        printf("\n%s\n", "palloc fail -> frame evict");
+        //printf("\n%s\n", "palloc fail -> frame evict");
         frame_evict();
-        printf("\n%s\n", "frame evict done");
+        //printf("\n%s\n", "frame evict done");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
             return NULL;
@@ -121,6 +121,7 @@ free_all_frames (struct thread *t)
 void
 frame_evict ()
 {
+    printf("\n%s\n", "frame evict start");
     if (!list_empty(&frame_table))
     {
         if (clock_hand == NULL)
@@ -161,7 +162,10 @@ frame_evict ()
         free_frame (fte->frame_number);     // free the evicted frame
     
         //lock_acquire (&frame_lock);         // acquire frame lock again
+        printf("\n%s\n", "successfully freed, evicted");
     }
+    else
+        printf("\n%s\n", "page table empty");
 }
 
 /* get matching frame table entry for the given physical address */
