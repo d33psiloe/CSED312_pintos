@@ -157,7 +157,7 @@ lazy_load_page (struct hash *spt, const void *upage)
   void *kpage = frame_allocate (PAL_USER, upage);
   if (kpage == NULL)
   {
-    printf("\n%s\n", "kpage is null after frame alloc");
+    //printf("\n%s\n", "kpage is null after frame alloc");
     exit (-1);
   }
     
@@ -172,13 +172,13 @@ lazy_load_page (struct hash *spt, const void *upage)
       break;
 
     case PAGE_FILE:
-      if(!is_holding_lock)
+      //if(!is_holding_lock)
         lock_acquire (&fs_lock);
 
       file_read_at (spte->file, kpage, spte->read_bytes, spte->file_offset);
       memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
       
-      if(!is_holding_lock)
+      //if(!is_holding_lock)
         lock_release(&fs_lock);
       break;
 
