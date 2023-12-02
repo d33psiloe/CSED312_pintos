@@ -171,6 +171,9 @@ process_exit (void)
   free_all_frames (cur);
   //
 
+  /* debug - Addition */
+  spage_table_free (&cur->spage_table);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -202,14 +205,14 @@ process_exit (void)
 
   // bool is_holding_lock = lock_held_by_current_thread (&fs_lock);
   // if(!is_holding_lock)
-    lock_acquire (&fs_lock);
-  file_close (cur->load_file);
-  // if(!is_holding_lock)
-    lock_release(&fs_lock);
-
-  // lock_acquire (&fs_lock);
+  //   lock_acquire (&fs_lock);
   // file_close (cur->load_file);
-  // lock_release(&fs_lock);
+  // if(!is_holding_lock)
+  //   lock_release(&fs_lock);
+
+  lock_acquire (&fs_lock);
+  file_close (cur->load_file);
+  lock_release(&fs_lock);
 
   // release parent process
   sema_up(&(cur->wait_sema));

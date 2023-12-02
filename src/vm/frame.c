@@ -29,6 +29,7 @@ void *
 //frame_allocate (enum palloc_flags flags, struct spt_entry *spte)
 frame_allocate (enum palloc_flags flags, void *page_number)
 {
+    printf("\n%s\n", "frame alloc start");
     struct ft_entry *fte;
     void *frame_number;
 
@@ -38,9 +39,9 @@ frame_allocate (enum palloc_flags flags, void *page_number)
     /* if allocation fails... do eviction and try again*/
     if (frame_number == NULL)
     {
-        //printf("\n%s\n", "check1");
+        printf("\n%s\n", "palloc fail -> frame evict");
         frame_evict();
-        //printf("\n%s\n", "check2");
+        printf("\n%s\n", "frame evict done");
         frame_number = palloc_get_page (PAL_USER);
         if (frame_number == NULL)
             return NULL;
@@ -57,6 +58,7 @@ frame_allocate (enum palloc_flags flags, void *page_number)
 
     //lock_release (&frame_lock);     // ---
     
+    printf("\n%s\n", "frame alloc end");
     return frame_number;
 }
 
@@ -64,6 +66,7 @@ frame_allocate (enum palloc_flags flags, void *page_number)
 static void *
 frame_free (struct ft_entry *fte)
 {
+    printf("\n%s\n", "frame free start");
     //ASSERT(lock_held_by_current_thread(&frame_lock));
     if (fte == NULL)
         exit (-1);
@@ -75,6 +78,8 @@ frame_free (struct ft_entry *fte)
     palloc_free_page (fte->frame_number);       // free the physical address
     pagedir_clear_page (fte->owner_thread->pagedir, fte->page_number);  // deactivate corresponding virtual address accesses
     free (fte);
+
+    printf("\n%s\n", "frame free end");
 }
 
 /* deallocates the frame with given physical address from frame table */
@@ -124,16 +129,16 @@ frame_evict ()
 
         while (true)
         {
-            //printf("\n%s\n", "iter");
+            printf("\n%s\n", "iter");
             fte = list_entry (clock_hand, struct ft_entry, fte_elem);
             if (pagedir_is_accessed (fte->owner_thread->pagedir, fte->page_number))
             {
-                //printf("\n%s\n", "set accessed false");
+                printf("\n%s\n", "set accessed false");
                 pagedir_set_accessed (fte->owner_thread->pagedir, fte->page_number, false);
             }
             else
             {
-                //printf("\n%s\n", "break!");
+                printf("\n%s\n", "break!");
                 break;
             }
             // iterate like circular queue

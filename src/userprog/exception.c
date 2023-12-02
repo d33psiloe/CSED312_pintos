@@ -125,6 +125,8 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
+   printf("\n%s\n", "page fault");
+
   bool not_present;  /* True: not-present page, false: writing r/o page. */
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
@@ -160,7 +162,7 @@ page_fault (struct intr_frame *f)
    /* pintos project3 */
    if(fault_addr < (void*)(0x08048000) || is_kernel_vaddr(fault_addr) || !not_present)
    {
-      //printf("\n%s\n", "fault1");
+      printf("\n%s\n", "fault1");
       exit (-1);
    }
 
@@ -178,6 +180,7 @@ page_fault (struct intr_frame *f)
    {
       if (fault_addr < esp - 32 || PHYS_BASE - (uint32_t) esp > (1 << 23) )
       {
+         printf("\n%s\n", "fault2");
          exit (-1);
       }
       if(extend_stack(spt, upage, esp))
