@@ -169,13 +169,14 @@ lazy_load_page (struct hash *spt, const void *upage)
       break;
 
     case PAGE_FILE:
-      printf("\n%s\n", "PAGE_FILE");
-
       if(!is_holding_lock)
         lock_acquire (&fs_lock);
 
-
-      file_read_at (spte->file, kpage, spte->read_bytes, spte->file_offset);
+      /* debug - Addition */
+      int32_t bytes = file_read_at (spte->file, kpage, spte->read_bytes, spte->file_offset);
+      if (bytes != spte->read_bytes)
+        printf("\n%s\n", "need addition");
+      
       memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
       
       if(!is_holding_lock)
@@ -186,12 +187,6 @@ lazy_load_page (struct hash *spt, const void *upage)
     case PAGE_SWAP:
       swap_in (kpage, spte->swap_idx);
       break;
-
-    /* debug - Addition */
-    default:
-      printf("\n%s\n", "default");
-      exit (-1);
-
   }
   
   bool success = pagedir_set_page(thread_current()->pagedir, upage, kpage, spte->writable);
