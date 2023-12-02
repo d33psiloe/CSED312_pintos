@@ -26,8 +26,7 @@ swap_init ()
 
 void
 swap_in (void *frame_number, size_t idx)
-{
-    printf("\n%s\n", "swap in start");    
+{   
     lock_acquire (&swap_lock);
 
     if (bitmap_test (swap_table, idx))
@@ -42,15 +41,11 @@ swap_in (void *frame_number, size_t idx)
     size_t i;
     for (i = 0; i < SECTOR_NUM; i++)
         block_read (swap_disk, (idx * SECTOR_NUM) + i, frame_number + (i * BLOCK_SECTOR_SIZE));
-
-    printf("\n%s\n", "swap in end");
 }
 
 size_t
 swap_out (void *frame_number)
 {
-    printf("\n%s\n", "swap out start");
-
     lock_acquire (&swap_lock);
     // find the location of first valid slot
     size_t idx = bitmap_scan_and_flip (swap_table, 0, 1, true);
@@ -61,6 +56,5 @@ swap_out (void *frame_number)
     for (i = 0; i < SECTOR_NUM; i++)
         block_write (swap_disk, (idx * SECTOR_NUM) + i, frame_number + (i * BLOCK_SECTOR_SIZE));
 
-    printf("\n%s\n", "swap out end");
     return idx;
 }
